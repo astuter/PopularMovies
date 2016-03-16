@@ -7,8 +7,8 @@ import android.util.Log;
 import com.activeandroid.ActiveAndroid;
 import com.activeandroid.query.Delete;
 import com.astuter.popularmovies.R;
-import com.astuter.popularmovies.gui.MovieListActivity;
-import com.astuter.popularmovies.model.Movies;
+import com.astuter.popularmovies.gui.MovieDetailFragment;
+import com.astuter.popularmovies.model.Videos;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -21,15 +21,15 @@ import java.net.URLConnection;
 /**
  * Created by astute on 01/03/16.
  */
-public class MovieListTask extends AsyncTask<String, Void, Boolean> {
+public class VideoListTask extends AsyncTask<String, Void, Boolean> {
 
-    private MovieListActivity mMovieListActivity;
+    private MovieDetailFragment mMovieDetailFragment;
     private ProgressDialog dialog;
 
 
-    public MovieListTask(MovieListActivity instance) {
-        mMovieListActivity = instance;
-        dialog = new ProgressDialog(instance);
+    public VideoListTask(MovieDetailFragment instance) {
+        mMovieDetailFragment = instance;
+        dialog = new ProgressDialog(instance.getActivity());
     }
 
     @Override
@@ -54,30 +54,27 @@ public class MovieListTask extends AsyncTask<String, Void, Boolean> {
             }
 
             JSONObject response = new JSONObject(Config.readInputStream(in));
-            JSONArray movieList = response.getJSONArray("results");
+            JSONArray videoList = response.getJSONArray("results");
+            String movieId = response.getString("id");
             try {
                 ActiveAndroid.beginTransaction();
-                for (int index = 0; index < movieList.length(); index++) {
+                for (int index = 0; index < videoList.length(); index++) {
 
-                    JSONObject movieData = movieList.getJSONObject(index);
+                    JSONObject videoData = videoList.getJSONObject(index);
 
-                    if (!Config.isMovieExists(movieData.getString("id"))) {
-                        new Delete().from(Movies.class).where(Config.COLM_MOVIE_ID + " = ?", movieData.getString("id")).execute();
+                    if (!Config.isVideoExists(videoData.getString("id"))) {
+                        new Delete().from(Videos.class).where(Config.COLM_VIDEO_ID + " = ?", videoData.getString("id")).execute();
                     }
 
-                    Movies movie = new Movies();
-                    movie.movieId = movieData.getString("id");
-                    movie.title = movieData.getString("title");
-                    movie.overview = movieData.getString("overview");
-                    movie.poster = Config.API_POSTER_PREFIX + movieData.getString("poster_path");
-                    movie.releaseDate = movieData.getString("release_date");
-                    movie.popularity = movieData.getLong("popularity");
-                    movie.voteCount = movieData.getLong("vote_count");
-                    movie.voteAverage = movieData.getLong("vote_average");
+                    Videos video = new Videos();
+                    video.movieId = movieId;
+                    video.videoId = videoData.getString("id");
+                    video.name = videoData.getString("name");
+                    video.videoLink = mMovieDetailFragment.getResources().getString(R.string.video_link_prefix) + videoData.getString("key");
 
-                    movie.save();
+                    video.save();
 
-                    mMovieListActivity.getMovieList().add(movie);
+                    mMovieDetailFragment.getVideoList().add(video);
                 }
                 ActiveAndroid.setTransactionSuccessful();
             } catch (Exception e) {
@@ -98,7 +95,7 @@ public class MovieListTask extends AsyncTask<String, Void, Boolean> {
         super.onPostExecute(success);
         if (success) {
             try {
-                mMovieListActivity.gotMovieData();
+                mMovieDetailFragment.gotVideosData();
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -111,11 +108,6 @@ public class MovieListTask extends AsyncTask<String, Void, Boolean> {
     @Override
     protected void onPreExecute() {
         super.onPreExecute();
-        this.dialog.setMessage(mMovieListActivity.getResources().getString(R.string.movie_task_dialog));
-        this.dialog.show();
     }
 
-    public interface MovieListTaskListener {
-        public void gotMovieData();
-    }
 }

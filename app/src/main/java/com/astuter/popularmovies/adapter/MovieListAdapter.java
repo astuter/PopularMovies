@@ -14,7 +14,9 @@ import com.astuter.popularmovies.api.Config;
 import com.astuter.popularmovies.gui.MovieDetailActivity;
 import com.astuter.popularmovies.gui.MovieDetailFragment;
 import com.astuter.popularmovies.gui.MovieListActivity;
-import com.astuter.popularmovies.model.Movie;
+import com.astuter.popularmovies.model.Movies;
+import com.squareup.picasso.Callback;
+import com.squareup.picasso.NetworkPolicy;
 import com.squareup.picasso.Picasso;
 
 import java.util.List;
@@ -24,12 +26,12 @@ import java.util.List;
  */
 
 
-public class SimpleMovieListAdapter extends ArrayAdapter<Movie> {
+public class MovieListAdapter extends ArrayAdapter<Movies> {
 
     MovieListActivity mMovieListActivity;
     boolean isTwoPane;
 
-    public SimpleMovieListAdapter(Context context, List<Movie> objects, boolean twoPane) {
+    public MovieListAdapter(Context context, List<Movies> objects, boolean twoPane) {
         super(context, 0, objects);
 
         if (context instanceof MovieListActivity) {
@@ -49,10 +51,31 @@ public class SimpleMovieListAdapter extends ArrayAdapter<Movie> {
         }
 
         // Gets the AndroidFlavor object from the ArrayAdapter at the appropriate position
-        final Movie movie = getItem(position);
+        final Movies movie = getItem(position);
 
-        ImageView mPosterView = (ImageView) convertView.findViewById(R.id.poster);
-        Picasso.with(mMovieListActivity).load(movie.getPoster()).placeholder(R.drawable.ic_movie_placeholder).into(mPosterView);
+        final ImageView mPosterView = (ImageView) convertView.findViewById(R.id.poster);
+//        Picasso.with(mMovieListActivity).load(movie.poster).placeholder(R.drawable.ic_movie_placeholder).into(mPosterView);
+
+        Picasso.with(mMovieListActivity)
+                .load(movie.poster)
+                .placeholder(R.drawable.ic_movie_placeholder)
+                .networkPolicy(NetworkPolicy.OFFLINE)
+                .into(mPosterView, new Callback() {
+                    @Override
+                    public void onSuccess() {
+
+                    }
+
+                    @Override
+                    public void onError() {
+                        //Try again online if cache failed
+                        Picasso.with(mMovieListActivity)
+                                .load(movie.poster)
+                                .placeholder(R.drawable.ic_movie_placeholder)
+                                .error(R.drawable.ic_movie_placeholder)
+                                .into(mPosterView);
+                    }
+                });
 
         mPosterView.setOnClickListener(new View.OnClickListener() {
             @Override

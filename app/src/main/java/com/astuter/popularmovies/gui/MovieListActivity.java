@@ -6,7 +6,6 @@ import android.preference.PreferenceManager;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.AbsListView;
@@ -14,22 +13,13 @@ import android.widget.GridView;
 import android.widget.Toast;
 
 import com.astuter.popularmovies.R;
-import com.astuter.popularmovies.adapter.SimpleMovieListAdapter;
-import com.astuter.popularmovies.api.ApplicationConfig;
+import com.astuter.popularmovies.adapter.MovieListAdapter;
 import com.astuter.popularmovies.api.Config;
 import com.astuter.popularmovies.api.MovieListTask;
-import com.astuter.popularmovies.model.Movie;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
+import com.astuter.popularmovies.model.Movies;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import okhttp3.ResponseBody;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
 
 /**
  * An activity representing a list of Movies. This activity
@@ -47,9 +37,9 @@ public class MovieListActivity extends AppCompatActivity implements MovieListTas
      */
     private boolean mTwoPane;
     private MovieListTask mMovieListTask;
-    private List<Movie> movieList;
+    private List<Movies> movieList;
     private GridView movieGridView;
-    private SimpleMovieListAdapter mSimpleMovieListAdapter;
+    private MovieListAdapter mMovieListAdapter;
     private SharedPreferences preferences;
 
     private static boolean loadingMore = true;
@@ -68,12 +58,6 @@ public class MovieListActivity extends AppCompatActivity implements MovieListTas
         // Get the SharedPreferences for user choice of movie short order
         preferences = PreferenceManager.getDefaultSharedPreferences(MovieListActivity.this);
 
-        // This will hold list of movie objects
-        movieList = new ArrayList<>();
-
-        // Fetch Moive list from server
-        fetchMovieList();
-
         movieGridView = (GridView) findViewById(R.id.movie_list);
         movieGridView.setOnScrollListener(new AbsListView.OnScrollListener() {
             @Override
@@ -89,12 +73,6 @@ public class MovieListActivity extends AppCompatActivity implements MovieListTas
 
             @Override
             public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
-//                int lastInScreen = firstVisibleItem + visibleItemCount;
-//                if ((lastInScreen == totalItemCount) && !(loadingMore)) {
-//
-//                    mMovieListTask.execute(Config.API_MOVIE_DISCOVER + "&page=" + CURRENT_PAGE);
-//                    CURRENT_PAGE++;
-//                }
             }
         });
 
@@ -106,73 +84,43 @@ public class MovieListActivity extends AppCompatActivity implements MovieListTas
             mTwoPane = true;
         }
 
-        mSimpleMovieListAdapter = new SimpleMovieListAdapter(MovieListActivity.this, movieList, mTwoPane);
-        movieGridView.setAdapter(mSimpleMovieListAdapter);
+        // This will hold list of movie objects
+        movieList = new ArrayList<>();
+        mMovieListAdapter = new MovieListAdapter(MovieListActivity.this, movieList, mTwoPane);
+        movieGridView.setAdapter(mMovieListAdapter);
+
+        // Fetch Moive list from server
+        fetchMovieList();
     }
 
     private void fetchMovieList() {
+        String sortBy = preferences.getString(Config.PREF_SHORT_ORDER, Config.API_POPULARITY_DESC);
 
         if (Config.isNetworkAvailable(MovieListActivity.this)) {
             // Get the movie list from themoviedb.org API
-            String sortBy = preferences.getString(Config.PREF_SHORT_ORDER, Config.API_POPULARITY_DESC);
             mMovieListTask = new MovieListTask(MovieListActivity.this);
             mMovieListTask.execute(Config.API_MOVIE_DISCOVER + "&page=" + CURRENT_PAGE + "&sort_by=" + sortBy);
         } else {
             Toast.makeText(MovieListActivity.this, getResources().getString(R.string.no_internet_connection), Toast.LENGTH_SHORT).show();
+            // No internet connection, fetch data from local storage
+            if (sortBy.equalsIgnoreCase("popularity.desc")) {
+                movieList = new ArrayList<>(Config.getAllMovies(Config.COLM_MOVIE_POPULARITY));
+            } else {
+                movieList = new ArrayList<>(Config.getAllMovies(Config.COLM_MOVIE_VOTE_AVERAGE));
+            }
+            mMovieListAdapter = new MovieListAdapter(MovieListActivity.this, movieList, mTwoPane);
+            movieGridView.setAdapter(mMovieListAdapter);
         }
+    }
 
+    public List<Movies> getMovieList() {
+        return movieList;
     }
 
     @Override
-    public void getMovieList(JSONArray result) {
-
-        for (int index = 0; index < result.length(); index++) {
-            try {
-                JSONObject movieData = result.getJSONObject(index);
-
-                Movie movie = new Movie();
-                movie.setId(movieData.getString("id"));
-                movie.setTitle(movieData.getString("title"));
-                movie.setOverview(movieData.getString("overview"));
-                movie.setPoster(Config.API_POSTER_PREFIX + movieData.getString("poster_path"));
-                movie.setReleaseDate(movieData.getString("release_date"));
-                movie.setPopularity(movieData.getLong("popularity"));
-                movie.setVoteCount(movieData.getLong("vote_count"));
-                movie.setVoteAverage(movieData.getLong("vote_average"));
-
-                Call<ResponseBody> call = ApplicationConfig.getRetrofit().getMovieVideos(movieData.getString("id"), Config.API_KEY);
-
-                call.enqueue(new Callback<ResponseBody>() {
-                    @Override
-                    public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
-                        try {
-                            Log.e("onResponse", " Body: " + response.body().string());
-                            JSONObject video = new JSONObject(response.body().string());
-                            JSONArray results = video.getJSONArray("results");
-
-                            String[] videoLinks = new String[results.length()];
-                            for (int i = 0; i < results.length(); i++) {
-                                JSONObject videoData = results.getJSONObject(0);
-                                videoLinks[i] = videoData.getString("key");
-                            }
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(Call<ResponseBody> call, Throwable t) {
-                        Log.e("onFailure", t.toString());
-                    }
-                });
-
-                movieList.add(movie);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-//        Log.e("getMovieList", "movieList: " + movieList.toString());
-        mSimpleMovieListAdapter.notifyDataSetChanged();
+    public void gotMovieData() {
+//        Log.e("getMovieList", "movieList: " + movieList.get(0).poster);
+        mMovieListAdapter.notifyDataSetChanged();
     }
 
     @Override
@@ -210,7 +158,9 @@ public class MovieListActivity extends AppCompatActivity implements MovieListTas
                 fetchMovieList();
                 return true;
             case R.id.action_favorite:
-
+                movieList.removeAll(movieList);
+                movieList = new ArrayList<>(Config.getFavoriteMovies(Config.COLM_MOVIE_VOTE_AVERAGE));
+                mMovieListAdapter.notifyDataSetChanged();
                 return true;
         }
 

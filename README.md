@@ -1,4 +1,4 @@
-Popular Movies (Stag-1)
+Popular Movies (Stag-2)
 ---------------
 ---------------
 This app will:

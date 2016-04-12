@@ -20,4 +20,5 @@
     android:layout_height="match_parent"
     android:numColumns="auto_fit"
     android:gravity="center"
-    android:stretchMode="columnWidth" />
+    android:stretchMode="columnWidth"
+    android:clickable="true"/>

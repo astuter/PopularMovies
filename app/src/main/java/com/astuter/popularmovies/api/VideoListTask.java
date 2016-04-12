@@ -24,12 +24,11 @@ import java.net.URLConnection;
 public class VideoListTask extends AsyncTask<String, Void, Boolean> {
 
     private MovieDetailFragment mMovieDetailFragment;
-    private ProgressDialog dialog;
+
 
 
     public VideoListTask(MovieDetailFragment instance) {
         mMovieDetailFragment = instance;
-        dialog = new ProgressDialog(instance.getActivity());
     }
 
     @Override
@@ -62,7 +61,7 @@ public class VideoListTask extends AsyncTask<String, Void, Boolean> {
 
                     JSONObject videoData = videoList.getJSONObject(index);
 
-                    if (!Config.isVideoExists(videoData.getString("id"))) {
+                    if (Config.isVideoExists(videoData.getString("id")) != null) {
                         new Delete().from(Videos.class).where(Config.COLM_VIDEO_ID + " = ?", videoData.getString("id")).execute();
                     }
 
@@ -99,9 +98,6 @@ public class VideoListTask extends AsyncTask<String, Void, Boolean> {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-        }
-        if (dialog.isShowing()) {
-            dialog.dismiss();
         }
     }
 

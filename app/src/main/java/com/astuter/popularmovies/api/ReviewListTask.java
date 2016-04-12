@@ -23,12 +23,9 @@ import java.net.URLConnection;
 public class ReviewListTask extends AsyncTask<String, Void, Boolean> {
 
     private MovieDetailFragment mMovieDetailFragment;
-    private ProgressDialog dialog;
-
 
     public ReviewListTask(MovieDetailFragment instance) {
         mMovieDetailFragment = instance;
-        dialog = new ProgressDialog(instance.getActivity());
     }
 
     @Override
@@ -61,8 +58,8 @@ public class ReviewListTask extends AsyncTask<String, Void, Boolean> {
 
                     JSONObject reviewData = reviewList.getJSONObject(index);
 
-                    if (!Config.isReviewExists(reviewData.getString("id"))) {
-                        new Delete().from(Reviews.class).where(Config.COLM_REVIEW_ID + " = ?", reviewData.getString("id")).execute();
+                    if (Config.isReviewExists(reviewData.getString("id")) != null) {
+                        new Delete().from(Reviews.class).where(Config.COLM_REVIEW_ID + " = ? ", reviewData.getString("id")).execute();
                     }
 
                     Reviews review = new Reviews();
@@ -98,9 +95,6 @@ public class ReviewListTask extends AsyncTask<String, Void, Boolean> {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-        }
-        if (dialog.isShowing()) {
-            dialog.dismiss();
         }
     }
 

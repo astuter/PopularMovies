@@ -61,7 +61,9 @@ public class MovieListTask extends AsyncTask<String, Void, Boolean> {
 
                     JSONObject movieData = movieList.getJSONObject(index);
 
-                    if (!Config.isMovieExists(movieData.getString("id"))) {
+                    Movies oldMovie = Config.isMovieExists(movieData.getString("id"));
+                    int isFavorite = oldMovie != null ? oldMovie.isFavorite : 0;
+                    if (oldMovie != null) {
                         new Delete().from(Movies.class).where(Config.COLM_MOVIE_ID + " = ?", movieData.getString("id")).execute();
                     }
 
@@ -74,6 +76,7 @@ public class MovieListTask extends AsyncTask<String, Void, Boolean> {
                     movie.popularity = movieData.getLong("popularity");
                     movie.voteCount = movieData.getLong("vote_count");
                     movie.voteAverage = movieData.getLong("vote_average");
+                    movie.isFavorite = isFavorite;
 
                     movie.save();
 

@@ -1,17 +1,25 @@
 package com.astuter.popularmovies.gui;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.AbsListView;
+import android.widget.AdapterView;
 import android.widget.GridView;
 import android.widget.Toast;
 
+import com.activeandroid.query.Update;
 import com.astuter.popularmovies.R;
 import com.astuter.popularmovies.adapter.MovieListAdapter;
 import com.astuter.popularmovies.api.Config;
@@ -45,6 +53,10 @@ public class MovieListActivity extends AppCompatActivity implements MovieListTas
     private static boolean loadingMore = true;
     private static int CURRENT_PAGE = 1;
 
+    private IntentFilter movieFavFilter;
+    private BroadcastReceiver moiveFavReceiver;
+    private static int selectedMovieIndex = 0;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -53,10 +65,29 @@ public class MovieListActivity extends AppCompatActivity implements MovieListTas
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         toolbar.setTitle(getTitle());
-        toolbar.setBackgroundColor(ContextCompat.getColor(MovieListActivity.this, R.color.black));
+//        toolbar.setBackgroundColor(ContextCompat.getColor(MovieListActivity.this, R.color.black));
 
         // Get the SharedPreferences for user choice of movie short order
         preferences = PreferenceManager.getDefaultSharedPreferences(MovieListActivity.this);
+
+        movieFavFilter = new IntentFilter(Config.ACTION_MOVIE_FAVORITE);
+        moiveFavReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (intent != null) {
+                    Log.e("onReceive in list", "position: " + selectedMovieIndex + " val: " + intent.getIntExtra(Config.MOVIE_IS_FAVORITE, 0));
+                    Movies movie = movieList.get(selectedMovieIndex);
+                    movie.isFavorite = intent.getIntExtra(Config.MOVIE_IS_FAVORITE, 0);
+                    movie.save();
+
+                    new Update(Movies.class)
+                            .set(Config.COLM_MOVIE_IS_FAVORITE + " = ? ", intent.getIntExtra(Config.MOVIE_IS_FAVORITE, 0))
+                            .where(Config.COLM_MOVIE_ID + " = ? ", movie.movieId)
+                            .execute();
+                }
+            }
+        };
+        registerReceiver(moiveFavReceiver, movieFavFilter);
 
         movieGridView = (GridView) findViewById(R.id.movie_list);
         movieGridView.setOnScrollListener(new AbsListView.OnScrollListener() {
@@ -76,6 +107,8 @@ public class MovieListActivity extends AppCompatActivity implements MovieListTas
             }
         });
 
+
+
         if (findViewById(R.id.movie_detail_container) != null) {
             // The detail container view will be present only in the
             // large-screen layouts (res/values-w900dp).
@@ -89,21 +122,55 @@ public class MovieListActivity extends AppCompatActivity implements MovieListTas
         mMovieListAdapter = new MovieListAdapter(MovieListActivity.this, movieList, mTwoPane);
         movieGridView.setAdapter(mMovieListAdapter);
 
+        movieGridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                selectedMovieIndex = position;
+                if (mTwoPane) {
+                    Bundle arguments = new Bundle();
+                    arguments.putParcelable(Config.MOVIE_EXTRA, movieList.get(position));
+                    arguments.putBoolean(Config.IS_TWO_PANE, mTwoPane);
+                    MovieDetailFragment fragment = new MovieDetailFragment();
+                    fragment.setArguments(arguments);
+                    getSupportFragmentManager().beginTransaction().replace(R.id.movie_detail_container, fragment).commit();
+                } else {
+                    Intent intent = new Intent(MovieListActivity.this, MovieDetailActivity.class);
+                    intent.putExtra(Config.MOVIE_EXTRA, movieList.get(position));
+                    intent.putExtra(Config.IS_TWO_PANE, mTwoPane);
+                    startActivity(intent);
+                }
+            }
+        });
+
         // Fetch Moive list from server
         fetchMovieList();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        registerReceiver(moiveFavReceiver, movieFavFilter);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(moiveFavReceiver);
+    }
+
     private void fetchMovieList() {
-        String sortBy = preferences.getString(Config.PREF_SHORT_ORDER, Config.API_POPULARITY_DESC);
+        String sortType = preferences.getString(Config.PREF_MOVIE_SORT_TYPE, Config.SORT_TYPE_POPULAR);
 
         if (Config.isNetworkAvailable(MovieListActivity.this)) {
             // Get the movie list from themoviedb.org API
             mMovieListTask = new MovieListTask(MovieListActivity.this);
-            mMovieListTask.execute(Config.API_MOVIE_DISCOVER + "&page=" + CURRENT_PAGE + "&sort_by=" + sortBy);
+            String url = sortType.equalsIgnoreCase(Config.SORT_TYPE_POPULAR) ? Config.API_MOVIE_POPULAR : Config.API_MOVIE_TOP_RATED;
+            mMovieListTask.execute(url + "&page=" + CURRENT_PAGE);
+
         } else {
             Toast.makeText(MovieListActivity.this, getResources().getString(R.string.no_internet_connection), Toast.LENGTH_SHORT).show();
             // No internet connection, fetch data from local storage
-            if (sortBy.equalsIgnoreCase("popularity.desc")) {
+            if (sortType.equalsIgnoreCase("POPULAR")) {
                 movieList = new ArrayList<>(Config.getAllMovies(Config.COLM_MOVIE_POPULARITY));
             } else {
                 movieList = new ArrayList<>(Config.getAllMovies(Config.COLM_MOVIE_VOTE_AVERAGE));
@@ -119,9 +186,13 @@ public class MovieListActivity extends AppCompatActivity implements MovieListTas
 
     @Override
     public void gotMovieData() {
-//        Log.e("getMovieList", "movieList: " + movieList.get(0).poster);
         mMovieListAdapter.notifyDataSetChanged();
+
+        if(mTwoPane){
+            movieGridView.performItemClick(movieGridView, 0, movieGridView.getAdapter().getItemId(0));
+        }
     }
+
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -141,7 +212,7 @@ public class MovieListActivity extends AppCompatActivity implements MovieListTas
         switch (id) {
             case R.id.action_popularity:
 
-                editor.putString(Config.PREF_SHORT_ORDER, Config.API_POPULARITY_DESC);
+                editor.putString(Config.PREF_MOVIE_SORT_TYPE, Config.SORT_TYPE_POPULAR);
                 editor.commit();
 
                 CURRENT_PAGE = 1;
@@ -150,7 +221,7 @@ public class MovieListActivity extends AppCompatActivity implements MovieListTas
                 return true;
             case R.id.action_rating:
 
-                editor.putString(Config.PREF_SHORT_ORDER, Config.API_RATING_DESC);
+                editor.putString(Config.PREF_MOVIE_SORT_TYPE, Config.SORT_TYPE_TOP_RATED);
                 editor.commit();
 
                 CURRENT_PAGE = 1;
@@ -160,10 +231,10 @@ public class MovieListActivity extends AppCompatActivity implements MovieListTas
             case R.id.action_favorite:
                 movieList.removeAll(movieList);
                 movieList = new ArrayList<>(Config.getFavoriteMovies(Config.COLM_MOVIE_VOTE_AVERAGE));
-                mMovieListAdapter.notifyDataSetChanged();
+                mMovieListAdapter = new MovieListAdapter(MovieListActivity.this, movieList, mTwoPane);
+                movieGridView.setAdapter(mMovieListAdapter);
                 return true;
         }
-
         return super.onOptionsItemSelected(item);
     }
 }

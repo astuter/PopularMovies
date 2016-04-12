@@ -3,6 +3,13 @@ package com.astuter.popularmovies.api;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.widget.LinearLayout;
+import android.widget.ListAdapter;
+import android.widget.ListView;
+import android.view.View;
+import android.view.ViewGroup;
+
+
 
 import com.activeandroid.query.Select;
 import com.astuter.popularmovies.model.Movies;
@@ -19,23 +26,23 @@ import java.util.List;
  */
 public class Config {
 
-    public static final String API_KEY = "700dd36be912a62b6b29327b8aa992f9";
-    public static final String API_BASE_URL = "https://api.themoviedb.org/3/";
-    public static final String API_MOVIE_DISCOVER = API_BASE_URL + "discover/movie?sort_by=popularity.desc&api_key=" + API_KEY;
-    public static final String API_VIDEOS_PREFIX = API_BASE_URL + "movie/";
-    public static final String API_VIDEOS_POSTFIX = "/videos?api_key=" + API_KEY;
-
-    public static final String API_REVIEW_PREFIX = API_BASE_URL + "movie/";
-    public static final String API_REVIEW_POSTFIX = "/reviews?api_key=" + API_KEY;
-
-    public static final String API_MOVIE_FIND = API_BASE_URL + "find/tt0266543?external_source=imdb_id&api_key=" + API_KEY; // tt0266543 is movie id
+    public static final String API_KEY = "";
+    public static final String API_BASE_URL = "https://api.themoviedb.org/3/movie/";
+    public static final String API_MOVIE_POPULAR = API_BASE_URL + "popular?api_key=" + API_KEY;
+    public static final String API_MOVIE_TOP_RATED = API_BASE_URL + "top_rated?api_key=" + API_KEY;
+    public static final String MOVIE_VIDEO_POSTFIX = "/videos?api_key=" + API_KEY;
+    public static final String MOVIE_REVIEW_POSTFIX = "/reviews?api_key=" + API_KEY;
     public static final String API_POSTER_PREFIX = "http://image.tmdb.org/t/p/w185";
 
-    public static final String API_POPULARITY_DESC = "popularity.desc";
-    public static final String API_RATING_DESC = "vote_average.desc";
-    public static final String PREF_SHORT_ORDER = "PREF_SHORT_ORDER";
+    public static final String PREF_MOVIE_SORT_TYPE = "PREF_MOVIE_SORT_TYPE";
+    public static final String SORT_TYPE_POPULAR = "POPULAR";
+    public static final String SORT_TYPE_TOP_RATED = "TOP_RATED";
 
     public static final String MOVIE_EXTRA = "MOVIE_EXTRA";
+    public static final String IS_TWO_PANE = "IS_TWO_PANE";
+    public static final String MOVIE_IS_FAVORITE = "MOVIE_IS_FAVORITE";
+
+    public static final String ACTION_MOVIE_FAVORITE = "ACTION_MOVIE_FAVORITE";
 
     // ActiveAndroid: Table names
     public static final String TABLE_MOVIE = "Movies";
@@ -89,12 +96,11 @@ public class Config {
     }
 
 
-    public static boolean isMovieExists(String id) {
-        Movies movie = new Select()
+    public static Movies isMovieExists(String id) {
+        return new Select()
                 .from(Movies.class)
                 .where(Config.COLM_MOVIE_ID + " = ?", id)
                 .executeSingle();
-        return movie == null;
     }
 
     public static List<Movies> getAllMovies(String sortBy) {
@@ -107,17 +113,16 @@ public class Config {
     public static List<Movies> getFavoriteMovies(String sortBy) {
         return new Select()
                 .from(Movies.class)
-                .where(Config.COLM_MOVIE_IS_FAVORITE + " = 1")
+                .where(Config.COLM_MOVIE_IS_FAVORITE + " = ? ", 1)
                 .orderBy(sortBy + " DESC")
                 .execute();
     }
 
-    public static boolean isVideoExists(String id) {
-        Videos video = new Select()
+    public static Videos isVideoExists(String id) {
+        return new Select()
                 .from(Videos.class)
                 .where(Config.COLM_VIDEO_ID + " = ?", id)
                 .executeSingle();
-        return video == null;
     }
 
     public static List<Videos> getAllVideos(String movieId) {
@@ -127,12 +132,12 @@ public class Config {
                 .execute();
     }
 
-    public static boolean isReviewExists(String id) {
-        Reviews review = new Select()
+    public static Reviews isReviewExists(String id) {
+        return new Select()
                 .from(Reviews.class)
                 .where(Config.COLM_REVIEW_ID + " = ?", id)
                 .executeSingle();
-        return review == null;
+
     }
 
     public static List<Reviews> getAllReviews(String movieId) {
@@ -140,5 +145,27 @@ public class Config {
                 .from(Reviews.class)
                 .where(Config.COLM_REVIEW_MOVIE_ID + " = ?", movieId)
                 .execute();
+    }
+
+    public static void setListViewHeightBasedOnChildren(ListView listView) {
+        ListAdapter listAdapter = listView.getAdapter();
+        if (listAdapter == null) {
+            // pre-condition
+            return;
+        }
+
+        int totalHeight = listView.getPaddingTop() + listView.getPaddingBottom();
+        for (int i = 0; i < listAdapter.getCount(); i++) {
+            View listItem = listAdapter.getView(i, null, listView);
+            if (listItem instanceof ViewGroup) {
+                listItem.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+            }
+            listItem.measure(0, 0);
+            totalHeight += listItem.getMeasuredHeight();
+        }
+
+        ViewGroup.LayoutParams params = listView.getLayoutParams();
+        params.height = totalHeight + (listView.getDividerHeight() * (listAdapter.getCount() - 1));
+        listView.setLayoutParams(params);
     }
 }

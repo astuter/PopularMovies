@@ -28,8 +28,7 @@ import java.util.List;
 
 public class MovieListAdapter extends ArrayAdapter<Movies> {
 
-    MovieListActivity mMovieListActivity;
-    boolean isTwoPane;
+    private MovieListActivity mMovieListActivity;
 
     public MovieListAdapter(Context context, List<Movies> objects, boolean twoPane) {
         super(context, 0, objects);
@@ -37,11 +36,10 @@ public class MovieListAdapter extends ArrayAdapter<Movies> {
         if (context instanceof MovieListActivity) {
             mMovieListActivity = (MovieListActivity) context;
         }
-        this.isTwoPane = twoPane;
     }
 
     @Override
-    public View getView(int position, View convertView, ViewGroup parent) {
+    public View getView(final int position, View convertView, ViewGroup parent) {
         // Adapters recycle views to AdapterViews.
         // If this is a new View object we're getting, then inflate the layout.
         // If not, this view already has the layout inflated from a previous call to getView,
@@ -77,23 +75,24 @@ public class MovieListAdapter extends ArrayAdapter<Movies> {
                     }
                 });
 
-        mPosterView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (isTwoPane) {
-                    Bundle arguments = new Bundle();
-                    arguments.putParcelable(Config.MOVIE_EXTRA, movie);
-                    MovieDetailFragment fragment = new MovieDetailFragment();
-                    fragment.setArguments(arguments);
-                    mMovieListActivity.getSupportFragmentManager().beginTransaction().replace(R.id.movie_detail_container, fragment).commit();
-                } else {
-
-                    Intent intent = new Intent(mMovieListActivity, MovieDetailActivity.class);
-                    intent.putExtra(Config.MOVIE_EXTRA, movie);
-                    mMovieListActivity.startActivity(intent);
-                }
-            }
-        });
+//        mPosterView.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                if (isTwoPane) {
+//                    Bundle arguments = new Bundle();
+//                    arguments.putParcelable(Config.MOVIE_EXTRA, movie);
+//                    MovieDetailFragment fragment = new MovieDetailFragment();
+//                    fragment.setArguments(arguments);
+//                    mMovieListActivity.getSupportFragmentManager().beginTransaction().replace(R.id.movie_detail_container, fragment).commit();
+//                } else {
+//
+//                    Intent intent = new Intent(mMovieListActivity, MovieDetailActivity.class);
+//                    intent.putExtra(Config.MOVIE_EXTRA, movie);
+//                    intent.putExtra(Config.MOVIE_INDEX, position);
+//                    mMovieListActivity.startActivity(intent);
+//                }
+//            }
+//        });
         return convertView;
     }
 }

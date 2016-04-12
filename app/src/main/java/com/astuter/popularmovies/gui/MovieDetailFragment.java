@@ -1,8 +1,11 @@
 package com.astuter.popularmovies.gui;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -11,9 +14,9 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AnimationUtils;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -42,15 +45,21 @@ import java.util.ArrayList;
 public class MovieDetailFragment extends Fragment {
 
     private Movies mMovie;
-    private TextView title, overview, releaseDate, userRating, voteCount;
+    private TextView title, overview, releaseDate, userRating;
     private ImageView poster;
     private LinearLayout VideoView, reviewView;
+    private ImageButton movieStar;
 
-    private ListView videoListView, reviewListView;
-    private VideosAdapter mVideosAdapter;
+    private RecyclerView reviewRecyclerView;
+    private RecyclerView.LayoutManager videoLayoutManager, reviewLayoutManager;
     private ReviewAdapter mReviewAdapter;
-    private ArrayList<Videos> videoList;
     private ArrayList<Reviews> reviewList;
+
+    private RecyclerView videoRecyclerView;
+    private VideosAdapter mVideosAdapter;
+    private ArrayList<Videos> videoList;
+
+    private boolean isTwoPane = false;
 
     /**
      * Mandatory empty constructor for the fragment manager to instantiate the
@@ -67,54 +76,101 @@ public class MovieDetailFragment extends Fragment {
             // Load the dummy content specified by the fragment
             // arguments. In a real-world scenario, use a Loader
             // to load content from a content provider.
-            mMovie = getArguments().getParcelable(Config.MOVIE_EXTRA);
 
+            mMovie = getArguments().getParcelable(Config.MOVIE_EXTRA);
+            isTwoPane = getArguments().getBoolean(Config.IS_TWO_PANE);
+            Log.e("MovieDetailFragment", " mMovie.isFavorite:" + mMovie.isFavorite);
 //            Activity activity = this.getActivity();
 //            CollapsingToolbarLayout appBarLayout = (CollapsingToolbarLayout) activity.findViewById(R.id.toolbar_layout);
 //            if (appBarLayout != null) {
 //                appBarLayout.setTitle(mMovie.getTitle());
 //            }
         }
-        setHasOptionsMenu(true);
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        View rootView = inflater.inflate(R.layout.movie_detail, container, false);
+        View rootView = inflater.inflate(R.layout.fragment_movie_detail, container, false);
+
+        setHasOptionsMenu(true);
 
         // Show the dummy content as text in a TextView.
         if (mMovie != null) {
             title = ((TextView) rootView.findViewById(R.id.title));
+
             overview = ((TextView) rootView.findViewById(R.id.overview));
             releaseDate = ((TextView) rootView.findViewById(R.id.release_date));
             userRating = ((TextView) rootView.findViewById(R.id.user_rating));
-            voteCount = ((TextView) rootView.findViewById(R.id.vote_count));
             poster = ((ImageView) rootView.findViewById(R.id.poster));
-            videoListView = (ListView) rootView.findViewById(R.id.video_list);
             VideoView = (LinearLayout) rootView.findViewById(R.id.video_view);
-
-            reviewListView = (ListView) rootView.findViewById(R.id.review_list);
             reviewView = (LinearLayout) rootView.findViewById(R.id.review_view);
 
             title.setText(mMovie.title);
             overview.setText(mMovie.overview);
             releaseDate.setText("Released on: " + mMovie.releaseDate);
             userRating.setText("User Rating: " + mMovie.voteAverage + " out of 10");
-            voteCount.setText("Total Votes: " + mMovie.voteCount);
+
+            if(isTwoPane){
+                movieStar = ((ImageButton) rootView.findViewById(R.id.moive_star));
+                movieStar.setVisibility(View.VISIBLE);
+                if (mMovie.isFavorite == 1) {
+                    movieStar.setBackgroundResource(R.drawable.ic_star);
+                } else {
+                    movieStar.setBackgroundResource(R.drawable.ic_star_border);
+                }
+
+                movieStar.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        if (mMovie.isFavorite == 1) {
+                            movieStar.setBackgroundResource(R.drawable.ic_star_border);
+
+                            Intent intent = new Intent(Config.ACTION_MOVIE_FAVORITE);
+                            intent.putExtra(Config.MOVIE_IS_FAVORITE, 0);
+                            getActivity().sendBroadcast(intent);
+                        } else {
+                            movieStar.setBackgroundResource(R.drawable.ic_star);
+
+                            Intent intent = new Intent(Config.ACTION_MOVIE_FAVORITE);
+                            intent.putExtra(Config.MOVIE_IS_FAVORITE, 1);
+                            getActivity().sendBroadcast(intent);
+                        }
+                    }
+                });
+            }
+
+            // use a linear layout manager for RecyclerView
+            videoLayoutManager = new LinearLayoutManager(getActivity());
+            videoLayoutManager.setAutoMeasureEnabled(true);
+
+            videoRecyclerView = (RecyclerView) rootView.findViewById(R.id.video_list);
+            videoRecyclerView.setHasFixedSize(true);
+            videoRecyclerView.setNestedScrollingEnabled(false);
+            videoRecyclerView.setLayoutManager(videoLayoutManager);
 
             videoList = new ArrayList<>();
-            mVideosAdapter = new VideosAdapter(getContext(), videoList);
-            videoListView.setAdapter(mVideosAdapter);
-
-            reviewList = new ArrayList<>();
-            mReviewAdapter = new ReviewAdapter(getContext(), reviewList);
-            reviewListView.setAdapter(mReviewAdapter);
-
+            mVideosAdapter = new VideosAdapter(getActivity(), videoList);
+            videoRecyclerView.setAdapter(mVideosAdapter);
             fetchVideos(mMovie.movieId);
 
+            // use a linear layout manager for RecyclerView
+            reviewLayoutManager = new LinearLayoutManager(getActivity());
+            reviewLayoutManager.setAutoMeasureEnabled(true);
+
+            // use this setting to improve performance if you know that changes
+            // in content do not change the layout size of the RecyclerView
+            reviewRecyclerView = (RecyclerView) rootView.findViewById(R.id.review_list);
+            reviewRecyclerView.setHasFixedSize(true);
+            reviewRecyclerView.setNestedScrollingEnabled(false);
+            reviewRecyclerView.setLayoutManager(reviewLayoutManager);
+
+            // specify an adapter (see also next example)
+            reviewList = new ArrayList<>();
+            mReviewAdapter = new ReviewAdapter(getActivity(), reviewList);
+            reviewRecyclerView.setAdapter(mReviewAdapter);
             fetchReviews(mMovie.movieId);
 
-            Picasso.with(getContext())
+            Picasso.with(getActivity())
                     .load(mMovie.poster)
                     .placeholder(R.drawable.ic_movie_placeholder)
                     .networkPolicy(NetworkPolicy.OFFLINE)
@@ -127,7 +183,7 @@ public class MovieDetailFragment extends Fragment {
                         @Override
                         public void onError() {
                             //Try again online if cache failed
-                            Picasso.with(getContext())
+                            Picasso.with(getActivity())
                                     .load(mMovie.poster)
                                     .placeholder(R.drawable.ic_movie_placeholder)
                                     .error(R.drawable.ic_movie_placeholder)
@@ -143,23 +199,32 @@ public class MovieDetailFragment extends Fragment {
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         // Do something that differs the Activity's menu here
         super.onCreateOptionsMenu(menu, inflater);
+        MenuItem item = menu.getItem(0);
+        if (mMovie.isFavorite == 1) {
+            item.setIcon(R.drawable.ic_star);
+        } else {
+            item.setIcon(R.drawable.ic_star_border);
+        }
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        Log.e("onOptionsItemSelected", "Fragment");
         switch (item.getItemId()) {
             case R.id.action_star:
                 // Do Fragment menu item stuff here
+                Log.e("onOptionsItemSelected", "Fragment");
                 if (mMovie.isFavorite == 1) {
-                    item.setIcon(R.drawable.ic_star);
-                    mMovie.isFavorite = 0;
-                    mMovie.save();
-                } else {
                     item.setIcon(R.drawable.ic_star_border);
 
-                    mMovie.isFavorite = 1;
-                    mMovie.save();
+                    Intent intent = new Intent(Config.ACTION_MOVIE_FAVORITE);
+                    intent.putExtra(Config.MOVIE_IS_FAVORITE, 0);
+                    getActivity().sendBroadcast(intent);
+                } else {
+                    item.setIcon(R.drawable.ic_star);
+
+                    Intent intent = new Intent(Config.ACTION_MOVIE_FAVORITE);
+                    intent.putExtra(Config.MOVIE_IS_FAVORITE, 1);
+                    getActivity().sendBroadcast(intent);
                 }
                 return true;
             default:
@@ -178,52 +243,52 @@ public class MovieDetailFragment extends Fragment {
     }
 
     private void fetchVideos(String movieId) {
-        if (Config.isNetworkAvailable(getContext())) {
+        if (Config.isNetworkAvailable(getActivity())) {
             VideoListTask videoTask = new VideoListTask(MovieDetailFragment.this);
-            videoTask.execute(Config.API_VIDEOS_PREFIX + movieId + Config.API_VIDEOS_POSTFIX);
+            videoTask.execute(Config.API_BASE_URL + movieId + Config.MOVIE_VIDEO_POSTFIX);
         } else {
-            Toast.makeText(getContext(), getResources().getString(R.string.no_internet_connection), Toast.LENGTH_SHORT).show();
+            Toast.makeText(getActivity(), getResources().getString(R.string.no_internet_connection), Toast.LENGTH_SHORT).show();
 
             videoList = new ArrayList<>(Config.getAllVideos(mMovie.movieId));
-            mVideosAdapter = new VideosAdapter(getContext(), videoList);
-            videoListView.setAdapter(mVideosAdapter);
+            mVideosAdapter = new VideosAdapter(getActivity(), videoList);
+            videoRecyclerView.setAdapter(mVideosAdapter);
 
-            showViewAnimated(VideoView, getContext());
+            showViewAnimated(VideoView, getActivity());
         }
     }
 
     public void gotVideosData() {
         mVideosAdapter.notifyDataSetChanged();
 
-        if (videoList.size() == 0) {
-            hideViewAnimated(VideoView, getContext());
+        if (videoList.size() > 0) {
+            showViewAnimated(VideoView, getActivity());
         } else {
-            showViewAnimated(VideoView, getContext());
+            hideViewAnimated(VideoView, getActivity());
         }
     }
 
     private void fetchReviews(String movieId) {
-        if (Config.isNetworkAvailable(getContext())) {
+        if (Config.isNetworkAvailable(getActivity())) {
             ReviewListTask reviewTask = new ReviewListTask(MovieDetailFragment.this);
-            reviewTask.execute(Config.API_REVIEW_PREFIX + movieId + Config.API_REVIEW_POSTFIX);
+            reviewTask.execute(Config.API_BASE_URL + movieId + Config.MOVIE_REVIEW_POSTFIX);
         } else {
-            Toast.makeText(getContext(), getResources().getString(R.string.no_internet_connection), Toast.LENGTH_SHORT).show();
+            Toast.makeText(getActivity(), getResources().getString(R.string.no_internet_connection), Toast.LENGTH_SHORT).show();
 
             reviewList = new ArrayList<>(Config.getAllReviews(mMovie.movieId));
-            mReviewAdapter = new ReviewAdapter(getContext(), reviewList);
-            reviewListView.setAdapter(mReviewAdapter);
+            mReviewAdapter = new ReviewAdapter(getActivity(), reviewList);
+            reviewRecyclerView.setAdapter(mReviewAdapter);
 
-            showViewAnimated(reviewView, getContext());
+            showViewAnimated(reviewView, getActivity());
         }
     }
 
     public void gotReviewsData() {
         mReviewAdapter.notifyDataSetChanged();
 
-        if (reviewList.size() == 0) {
-            hideViewAnimated(reviewView, getContext());
+        if (reviewList.size() > 0) {
+            showViewAnimated(reviewView, getActivity());
         } else {
-            showViewAnimated(reviewView, getContext());
+            hideViewAnimated(reviewView, getActivity());
         }
     }
 

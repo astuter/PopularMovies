@@ -1,10 +1,10 @@
 package com.astuter.popularmovies.adapter;
 
 import android.content.Context;
+import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.TextView;
 
 import com.astuter.popularmovies.R;
@@ -17,36 +17,51 @@ import java.util.List;
  */
 
 
-public class ReviewAdapter extends ArrayAdapter<Reviews> {
+public class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ViewHolder> {
 
     Context mContext;
+    List<Reviews> reviewsList;
 
     public ReviewAdapter(Context context, List<Reviews> objects) {
-        super(context, 0, objects);
-
         mContext = context;
+        reviewsList = objects;
+    }
+
+    public static class ViewHolder extends RecyclerView.ViewHolder {
+        // each data item is just a string in this case
+        public TextView author;
+        public TextView content;
+
+        public ViewHolder(View v) {
+            super(v);
+            author = (TextView) v.findViewById(R.id.author);
+            content = (TextView) v.findViewById(R.id.content);
+        }
+    }
+
+    // Return the size of your dataset (invoked by the layout manager)
+    @Override
+    public int getItemCount() {
+        return reviewsList.size();
     }
 
     @Override
-    public View getView(int position, View convertView, ViewGroup parent) {
-        // Adapters recycle views to AdapterViews.
-        // If this is a new View object we're getting, then inflate the layout.
-        // If not, this view already has the layout inflated from a previous call to getView,
-        // and we modify the View widgets as usual.
-        if (convertView == null) {
-            convertView = LayoutInflater.from(getContext()).inflate(R.layout.layout_review_list, parent, false);
-        }
+    public ReviewAdapter.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+        // create a new view
+        View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.layout_review_list, parent, false);
+        // set the view's size, margins, paddings and layout parameters
 
-        // Gets the AndroidFlavor object from the ArrayAdapter at the appropriate position
-        final Reviews review = getItem(position);
+        ViewHolder vh = new ViewHolder(v);
+        return vh;
+    }
 
-        TextView author = (TextView) convertView.findViewById(R.id.author);
-        author.setText(position + ") " + review.author == null ? "Unknown" : review.author);
-
-        TextView content = (TextView) convertView.findViewById(R.id.content);
-        content.setText(review.content);
-
-
-        return convertView;
+    // Replace the contents of a view (invoked by the layout manager)
+    @Override
+    public void onBindViewHolder(ViewHolder holder, int position) {
+        // - get element from your dataset at this position
+        // - replace the contents of the view with that element
+        String author = reviewsList.get(position).author == null ? "Unknown" : reviewsList.get(position).author;
+        holder.author.setText((position + 1) + ") " + author + ":");
+        holder.content.setText(reviewsList.get(position).content);
     }
 }
